@@ -262,7 +262,13 @@ public class Disk: Module {
         
         self.menuBar.widgets.filter{ $0.isActive }.forEach { (w: SWidget) in
             switch w.item {
-            case let widget as Mini: widget.setValue(d.percentage)
+            case let widget as Mini:
+                let temperatureC = Double(d.smart?.temperature ?? 0).rounded(.up)
+                let temperatureVal = Measurement(value: temperatureC, unit: UnitTemperature.celsius)
+                    .converted(to: UnitTemperature.current)
+                    .value.rounded(.up)/100
+                widget.setValue(temperatureVal)
+                widget.setSuffix(UnitTemperature.current.symbol)
             case let widget as BarChart: widget.setValue([[ColorValue(d.percentage)]])
             case let widget as MemoryWidget:
                 widget.setValue((DiskSize(d.free).getReadableMemory(), DiskSize(d.size - d.free).getReadableMemory()), usedPercentage: d.percentage)
