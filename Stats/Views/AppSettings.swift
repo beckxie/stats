@@ -39,31 +39,6 @@ class ApplicationSettings: NSStackView {
         set { Store.shared.set(key: "CombinedModules_popup", value: newValue) }
     }
     
-    private var importIcon: NSImage {
-        if #available(macOS 12.0, *), let icon = iconFromSymbol(name: "square.and.arrow.down", scale: .large) {
-            return icon
-        }
-        return NSImage(named: NSImage.Name("import"))!
-    }
-    private var exportIcon: NSImage {
-        if #available(macOS 12.0, *), let icon = iconFromSymbol(name: "square.and.arrow.up", scale: .large) {
-            return icon
-        }
-        return NSImage(named: NSImage.Name("export"))!
-    }
-    private var resetIcon: NSImage {
-        if #available(macOS 12.0, *), let icon = iconFromSymbol(name: "trash", scale: .large) {
-            return icon
-        }
-        return NSImage(named: NSImage.Name("trash"))!
-    }
-    private var uninstallIcon: NSImage {
-        if #available(macOS 12.0, *), let icon = iconFromSymbol(name: "xmark.circle", scale: .large) {
-            return icon
-        }
-        return NSImage(named: NSImage.Name("cancel"))!
-    }
-    
     private var updateSelector: NSPopUpButton?
     private var startAtLoginBtn: NSSwitch?
     private var telemetryBtn: NSSwitch?
@@ -73,6 +48,14 @@ class ApplicationSettings: NSStackView {
     
     private let updateWindow: UpdateWindow = UpdateWindow()
     private let moduleSelector: ModuleSelectorView = ModuleSelectorView()
+    
+    private var CPUeButton: NSButton?
+    private var CPUpButton: NSButton?
+    private var GPUButton: NSButton?
+    
+    private var CPUeTest: CPUeStressTest = CPUeStressTest()
+    private var CPUpTest: CPUpStressTest = CPUpStressTest()
+    private var GPUTest: GPUStressTest? = GPUStressTest()
     
     init() {
         super.init(frame: NSRect(x: 0, y: 0, width: Constants.Settings.width, height: Constants.Settings.height))
@@ -144,32 +127,49 @@ class ApplicationSettings: NSStackView {
         self.combinedModulesView?.setRowVisibility(3, newState: self.combinedModulesState)
         self.combinedModulesView?.setRowVisibility(4, newState: self.combinedModulesState)
         
-        scrollView.stackView.addArrangedSubview(PreferencesSection([
-            PreferencesRow(
-                localizedString("Import settings"),
-                component: buttonIconView(#selector(self.importSettings), icon: self.importIcon)
-            ),
+        scrollView.stackView.addArrangedSubview(PreferencesSection(label: localizedString("Settings"), [
             PreferencesRow(
                 localizedString("Export settings"),
-                component: buttonIconView(#selector(self.exportSettings), icon: self.exportIcon)
+                component: buttonView(#selector(self.exportSettings), text: localizedString("Save"))
+            ),
+            PreferencesRow(
+                localizedString("Import settings"),
+                component: buttonView(#selector(self.importSettings), text: localizedString("Choose file"))
             ),
             PreferencesRow(
                 localizedString("Reset settings"),
-                component: buttonIconView(#selector(self.resetSettings), icon: self.resetIcon)
+                component: buttonView(#selector(self.resetSettings), text: localizedString("Reset"))
             )
         ]))
         
         self.fanHelperView = PreferencesSection([
             PreferencesRow(
                 localizedString("Uninstall fan helper"),
-                component: buttonIconView(#selector(self.uninstallHelper), icon: self.uninstallIcon)
+                component: buttonView(#selector(self.uninstallHelper), text: localizedString("Uninstall"))
             )
         ])
         scrollView.stackView.addArrangedSubview(self.fanHelperView!)
         
         self.addArrangedSubview(scrollView)
         
-        NotificationCenter.default.addObserver(self, selector: #selector(toggleUninstallHelperButton), name: .fanHelperState, object: nil)
+        let CPUeButton = buttonView(#selector(self.toggleCPUeStressTest), text: localizedString("Run"))
+        let CPUpButton = buttonView(#selector(self.toggleCPUpStressTest), text: localizedString("Run"))
+        let GPUButton = buttonView(#selector(self.toggleGPUStressTest), text: localizedString("Run"))
+        
+        self.CPUeButton = CPUeButton
+        self.CPUpButton = CPUpButton
+        self.GPUButton = GPUButton
+        
+        var tests = [
+            PreferencesRow(localizedString("Efficiency cores"), component: CPUeButton),
+            PreferencesRow(localizedString("Performance cores"), component: CPUpButton)
+        ]
+        if self.GPUTest != nil {
+            tests.append(PreferencesRow(localizedString("GPU"), component: GPUButton))
+        }
+        scrollView.stackView.addArrangedSubview(PreferencesSection(label: localizedString("Stress tests"), tests))
+        
+        NotificationCenter.default.addObserver(self, selector: #selector(self.toggleUninstallHelperButton), name: .fanHelperState, object: nil)
     }
     
     required init?(coder: NSCoder) {
@@ -371,6 +371,38 @@ class ApplicationSettings: NSStackView {
     
     @objc private func uninstallHelper() {
         SMCHelper.shared.uninstall()
+    }
+    
+    @objc private func toggleCPUeStressTest() {
+        if self.CPUeTest.isRunning {
+            self.CPUeTest.stop()
+            self.CPUeButton?.title = localizedString("Run")
+        } else {
+            self.CPUeTest.start()
+            self.CPUeButton?.title = localizedString("Stop")
+        }
+    }
+    
+    @objc private func toggleCPUpStressTest() {
+        if self.CPUpTest.isRunning {
+            self.CPUpTest.stop()
+            self.CPUpButton?.title = localizedString("Run")
+        } else {
+            self.CPUpTest.start()
+            self.CPUpButton?.title = localizedString("Stop")
+        }
+    }
+    
+    @objc private func toggleGPUStressTest() {
+        guard let test = self.GPUTest else { return }
+        
+        if test.isRunning {
+            test.stop()
+            self.GPUButton?.title = localizedString("Run")
+        } else {
+            test.start()
+            self.GPUButton?.title = localizedString("Stop")
+        }
     }
 }
 

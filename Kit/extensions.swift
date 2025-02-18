@@ -202,6 +202,19 @@ public extension Double {
         
         return "\(h)h \(minutes)min"
     }
+    
+    func power(_ unit: String) -> Double {
+        switch unit {
+        case "mJ":
+            return self / 1e3
+        case "uJ":
+            return self / 1e6
+        case "nJ":
+            return self / 1e9
+        default:
+            return 0
+        }
+    }
 }
 
 public extension NSView {
@@ -311,6 +324,15 @@ public extension NSView {
         s.action = action
         s.target = self
         return s
+    }
+    
+    func buttonView(_ action: Selector, text: String) -> NSButton {
+        let button = NSButton()
+        button.title = text
+        button.contentTintColor = .labelColor
+        button.action = action
+        button.target = self
+        return button
     }
     
     func buttonIconView(_ action: Selector, icon: NSImage, height: CGFloat = 22) -> NSButton {
