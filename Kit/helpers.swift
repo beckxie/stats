@@ -197,8 +197,10 @@ public struct Units {
         formatter.includesUnit = true
         formatter.isAdaptive = true
         
-        var value = formatter.string(fromByteCount: Int64(bytes))
-        value = value.replacingOccurrences(of: ",", with: ".")
+        var value = formatter.string(fromByteCount: Int64(self.bytes))
+        if let idx = value.lastIndex(of: ",") {
+            value.replaceSubrange(idx...idx, with: ".")
+        }
         
         return value
     }
@@ -1644,9 +1646,9 @@ public class CPUeStressTest {
         guard !self.isRunning else { return }
         self.isRunning = true
         
-        let efficientCoreCount = ProcessInfo.processInfo.processorCount / 2
+        let efficientCoreCount: Int = Int(SystemKit.shared.device.info.cpu?.eCores ?? 2)
         self.workers.removeAll()
-
+        
         for index in 0..<efficientCoreCount {
             let worker = DispatchWorkItem { [weak self] in
                 self?.test(threadIndex: index)
@@ -1664,8 +1666,11 @@ public class CPUeStressTest {
     
     private func test(threadIndex: Int) {
         pthread_set_qos_class_self_np(QOS_CLASS_BACKGROUND, 0)
-        while isRunning {
-            _ = sqrt(987654.321)
+        var x: Double = 1.0
+        while self.isRunning {
+            x = sin(x) + cos(x)
+            if x > 100000 { x = 1.0 }
+            OSMemoryBarrier()
         }
     }
 }
@@ -1675,16 +1680,16 @@ public class CPUpStressTest {
     
     private var workers: [DispatchWorkItem] = []
     private let queue = DispatchQueue.global(qos: .userInteractive)
-
+    
     public init() {}
-
+    
     public func start() {
         guard !self.isRunning else { return }
         self.isRunning = true
-
-        let performanceCoreCount = ProcessInfo.processInfo.activeProcessorCount
+        
+        let performanceCoreCount: Int = Int(SystemKit.shared.device.info.cpu?.pCores ?? 4)
         self.workers.removeAll()
-
+        
         for index in 0..<performanceCoreCount {
             let worker = DispatchWorkItem { [weak self] in
                 self?.test(threadIndex: index)
@@ -1702,8 +1707,11 @@ public class CPUpStressTest {
     
     private func test(threadIndex: Int) {
         pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0)
-        while isRunning {
-            _ = sqrt(987654.321)
+        var x: Double = 1.0
+        while self.isRunning {
+            x = sin(x) + cos(x)
+            if x > 100000 { x = 1.0 }
+            OSMemoryBarrier()
         }
     }
 }
