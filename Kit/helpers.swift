@@ -342,7 +342,7 @@ public func separatorView(_ title: String, origin: NSPoint = NSPoint(x: 0, y: 0)
 public func popupRow(_ view: NSView, title: String, value: String) -> (LabelField, ValueField, NSView) {
     let rowView: NSView = NSView(frame: NSRect(x: 0, y: 0, width: view.frame.width, height: 22))
     
-    let labelWidth = title.widthOfString(usingFont: .systemFont(ofSize: 13, weight: .regular)) + 4
+    let labelWidth = title.widthOfString(usingFont: .systemFont(ofSize: 12, weight: .regular)) + 4
     let labelView: LabelField = LabelField(frame: NSRect(x: 0, y: (22-16)/2, width: labelWidth, height: 16), title)
     let valueView: ValueField = ValueField(frame: NSRect(x: labelWidth, y: (22-16)/2, width: rowView.frame.width - labelWidth, height: 16), value)
     
@@ -807,12 +807,12 @@ internal class WidgetLabelView: NSView {
             NSAttributedString.Key.paragraphStyle: style
         ]
         
-        let title = self.title.prefix(3)
+        let title = String(self.title.prefix(3)).uppercased().reversed()
         let letterHeight = self.frame.height / 3
         let letterWidth: CGFloat = self.frame.height / CGFloat(title.count)
         
         var yMargin: CGFloat = 0
-        for char in title.uppercased().reversed() {
+        for char in title {
             let rect = CGRect(x: 0, y: yMargin, width: letterWidth, height: letterHeight-1)
             let str = NSAttributedString.init(string: "\(char)", attributes: stringAttributes)
             str.draw(with: rect)
@@ -1316,6 +1316,13 @@ public class PreferencesSection: NSStackView {
     }
     
     public func setRowVisibility(_ at: Int, newState: Bool) {
+        if at == 0 {
+            self.container.subviews[0].isHidden = !newState
+            if self.container.subviews.count > 1 {
+                self.container.subviews[1].isHidden = !newState
+            }
+            return
+        }
         for i in self.container.subviews.indices where i/2 == at && Double(i).remainder(dividingBy: 2) == 0 {
             self.container.subviews[i-1].isHidden = !newState
             self.container.subviews[i].isHidden = !newState
@@ -1464,6 +1471,7 @@ public class StepperInput: NSStackView, NSTextFieldDelegate, PreferencesSwitchWi
         _ value: Int,
         range: NSRange = NSRange(location: 1, length: 99),
         unit: String = "%",
+        visibileUnit: Bool = true,
         units: [KeyValue_p]? = nil,
         callback: @escaping (Int) -> Void = {_ in },
         unitCallback: @escaping (KeyValue_p) -> Void = {_ in }
@@ -1504,10 +1512,12 @@ public class StepperInput: NSStackView, NSTextFieldDelegate, PreferencesSwitchWi
             if unit == "%" {
                 self.widthAnchor.constraint(equalToConstant: 68).isActive = true
             }
-            let symbol: NSTextField = LabelField(unit)
-            symbol.textColor = .textColor
-            self.addArrangedSubview(symbol)
-            self.symbolView = symbol
+            if visibileUnit {
+                let symbol: NSTextField = LabelField(unit)
+                symbol.textColor = .textColor
+                self.addArrangedSubview(symbol)
+                self.symbolView = symbol
+            }
         } else if let units {
             self.units = units
             self.unitsView = selectView(

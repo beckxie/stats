@@ -24,6 +24,10 @@ public struct stats: Codable {
 public struct smart_t: Codable {
     var temperature: Int = 0
     var life: Int = 0
+    var totalRead: Int64 = 0
+    var totalWritten: Int64 = 0
+    var powerCycles: Int = 0
+    var powerOnHours: Int = 0
 }
 
 public struct drive: Codable {
@@ -60,9 +64,13 @@ public struct drive: Codable {
     public var popupState: Bool {
         Store.shared.bool(key: "Disk_\(self.uuid)_popup", defaultValue: true)
     }
+    
+    public func remote() -> String {
+        return "\(self.uuid),\(self.size),\(self.size-self.free),\(self.free),\(self.activity.read),\(self.activity.write)"
+    }
 }
 
-public class Disks: Codable {
+public class Disks: Codable, RemoteType {
     private var queue: DispatchQueue = DispatchQueue(label: "eu.exelban.Stats.Disk.SynchronizedArray")
     private var _array: [drive] = []
     public var array: [drive] {
@@ -152,6 +160,18 @@ public class Disks: Codable {
     func updateSMARTData(_ idx: Int, smart: smart_t?) {
         self.array[idx].smart = smart
     }
+    
+    public func remote() -> Data? {
+        var string = "\(self.array.count),"
+        for (i, v) in self.array.enumerated() {
+            string += v.remote()
+            if i != self.array.count {
+                string += ","
+            }
+        }
+        string += "$"
+        return string.data(using: .utf8)
+    }
 }
 
 public struct Disk_process: Process_p, Codable {
@@ -196,6 +216,10 @@ public class Disk: Module {
     private var processReader: ProcessReader?
     
     private var selectedDisk: String = ""
+    
+    private var textValue: String {
+        Store.shared.string(key: "\(self.name)_textWidgetValue", defaultValue: "$capacity.free/$capacity.total")
+    }
     
     public init() {
         super.init(
@@ -276,6 +300,37 @@ public class Disk: Module {
                 widget.setValue([
                     circle_segment(value: d.percentage, color: NSColor.systemBlue)
                 ])
+            case let widget as TextWidget:
+                var text = "\(self.textValue)"
+                let pairs = TextWidget.parseText(text)
+                pairs.forEach { pair in
+                    var replacement: String? = nil
+                    
+                    switch pair.key {
+                    case "$capacity":
+                        switch pair.value {
+                        case "total": replacement = DiskSize(d.size).getReadableMemory()
+                        case "used": replacement = DiskSize(d.size - d.free).getReadableMemory()
+                        case "free": replacement = DiskSize(d.free).getReadableMemory()
+                        default: return
+                        }
+                    case "$percentage":
+                        var percentage: Int
+                        switch pair.value {
+                        case "used": percentage = Int((Double(d.size - d.free) / Double(d.size)) * 100)
+                        case "free": percentage = Int((Double(d.free) / Double(d.size)) * 100)
+                        default: return
+                        }
+                        replacement = "\(percentage < 0 ? 0 : percentage)%"
+                    default: return
+                    }
+                    
+                    if let replacement {
+                        let key = pair.value.isEmpty ? pair.key : "\(pair.key).\(pair.value)"
+                        text = text.replacingOccurrences(of: key, with: replacement)
+                    }
+                }
+                widget.setValue(text)
             default: break
             }
         }

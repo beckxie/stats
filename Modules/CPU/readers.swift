@@ -173,9 +173,7 @@ public class ProcessReader: Reader<[TopProcess]> {
     private let title: String = "CPU"
     
     private var numberOfProcesses: Int {
-        get {
-            return Store.shared.int(key: "\(self.title)_processes", defaultValue: 8)
-        }
+        get { Store.shared.int(key: "\(self.title)_processes", defaultValue: 8) }
     }
     
     public override func setup() {
@@ -247,6 +245,7 @@ public class TemperatureReader: Reader<Double> {
     var list: [String] = []
     
     public override func setup() {
+        self.popup = true
         switch SystemKit.shared.device.platform {
         case .m1, .m1Pro, .m1Max, .m1Ultra:
             self.list = ["Tp09", "Tp0T", "Tp01", "Tp05", "Tp0D", "Tp0H", "Tp0L", "Tp0P", "Tp0X", "Tp0b"]
@@ -292,15 +291,24 @@ public class TemperatureReader: Reader<Double> {
 }
 
 // inspired by https://github.com/shank03/StatsBar/blob/e175aa71c914ce882ce2e90163f3eb18262a8e25/StatsBar/Service/IOReport.swift
-public class FrequencyReader: Reader<[Double]> {
+public class FrequencyReader: Reader<CPU_Frequency> {
     private var eCoreFreqs: [Int32] = []
     private var pCoreFreqs: [Int32] = []
+    private var eCoreCount: Double = 0
+    private var pCoreCount: Double = 0
     
     private var channels: CFMutableDictionary? = nil
     private var subscription: IOReportSubscriptionRef? = nil
     private var prev: (samples: CFDictionary, time: TimeInterval)? = nil
     
     private let measurementCount: Int = 4
+    private let isReadingQueue = DispatchQueue(label: "com.example.isReadingQueue")
+    
+    private var _isReading: Bool = false
+    private var isReading: Bool {
+        get { self.isReadingQueue.sync { self._isReading } }
+        set { self.isReadingQueue.sync { self._isReading = newValue } }
+    }
     
     private struct IOSample {
         let group: String
@@ -311,8 +319,11 @@ public class FrequencyReader: Reader<[Double]> {
     }
     
     public override func setup() {
+        self.popup = true
         self.eCoreFreqs = SystemKit.shared.device.info.cpu?.eCoreFrequencies ?? []
         self.pCoreFreqs = SystemKit.shared.device.info.cpu?.pCoreFrequencies ?? []
+        self.eCoreCount = Double(SystemKit.shared.device.info.cpu?.eCores ?? 0)
+        self.pCoreCount = Double(SystemKit.shared.device.info.cpu?.pCores ?? 0)
         self.channels = self.getChannels()
         var dict: Unmanaged<CFMutableDictionary>?
         self.subscription = IOReportCreateSubscription(nil, self.channels, &dict, 0, nil)
@@ -320,7 +331,8 @@ public class FrequencyReader: Reader<[Double]> {
     }
     
     public override func read() {
-        guard !self.eCoreFreqs.isEmpty && !self.pCoreFreqs.isEmpty, self.channels != nil, self.subscription != nil else { return }
+        guard !self.isReading, !self.eCoreFreqs.isEmpty && !self.pCoreFreqs.isEmpty, self.channels != nil, self.subscription != nil else { return }
+        self.isReading = true
         let minECoreFreq = Double(self.eCoreFreqs.min() ?? 0)
         let minPCoreFreq = Double(self.pCoreFreqs.min() ?? 0)
         
@@ -350,8 +362,10 @@ public class FrequencyReader: Reader<[Double]> {
             
             let eFreq: Double = eCores.reduce(0, { $0 + $1 }) / Double(self.measurementCount)
             let pFreq: Double = pCores.reduce(0, { $0 + $1 }) / Double(self.measurementCount)
+            let value: Double = ((eFreq * self.eCoreCount) + (pFreq * self.pCoreCount)) / (self.eCoreCount + self.pCoreCount)
             
-            self.callback([eFreq, pFreq])
+            self.callback(CPU_Frequency(value: value, eCore: eFreq, pCore: pFreq))
+            self.isReading = false
         }
     }
     
@@ -421,7 +435,12 @@ public class FrequencyReader: Reader<[Double]> {
         
         for _ in 0..<self.measurementCount {
             let milliseconds = UInt64(step) * 1_000_000
-            try? await Task.sleep(nanoseconds: milliseconds)
+            do {
+                try await Task.sleep(nanoseconds: milliseconds)
+            } catch {
+                if Task.isCancelled { return [] }
+                continue
+            }
             
             guard let next = self.getSample() else { continue }
             

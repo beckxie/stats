@@ -66,6 +66,7 @@ internal class Settings: NSStackView, Settings_v, NSTextFieldDelegate {
         self.numberOfProcesses = Store.shared.int(key: "\(self.title)_processes", defaultValue: self.numberOfProcesses)
         self.splitValueState = Store.shared.bool(key: "\(self.title)_splitValue", defaultValue: self.splitValueState)
         self.notificationLevel = Store.shared.string(key: "\(self.title)_notificationLevel", defaultValue: self.notificationLevel)
+        self.textValue = Store.shared.string(key: "\(self.title)_textWidgetValue", defaultValue: self.textValue)
         
         super.init(frame: NSRect.zero)
         
@@ -139,18 +140,16 @@ internal class Settings: NSStackView, Settings_v, NSTextFieldDelegate {
     }
     
     @objc private func changeUpdateInterval(_ sender: NSMenuItem) {
-        if let value = Int(sender.title.replacingOccurrences(of: " sec", with: "")) {
-            self.updateIntervalValue = value
-            Store.shared.set(key: "\(self.title)_updateInterval", value: value)
-            self.setInterval(value)
-        }
+        guard let key = sender.representedObject as? String, let value = Int(key) else { return }
+        self.updateIntervalValue = value
+        Store.shared.set(key: "\(self.title)_updateInterval", value: value)
+        self.setInterval(value)
     }
     @objc private func changeUpdateTopInterval(_ sender: NSMenuItem) {
-        if let value = Int(sender.title.replacingOccurrences(of: " sec", with: "")) {
-            self.updateTopIntervalValue = value
-            Store.shared.set(key: "\(self.title)_updateTopInterval", value: value)
-            self.setTopInterval(value)
-        }
+        guard let key = sender.representedObject as? String, let value = Int(key) else { return }
+        self.updateTopIntervalValue = value
+        Store.shared.set(key: "\(self.title)_updateTopInterval", value: value)
+        self.setTopInterval(value)
     }
     @objc private func changeNumberOfProcesses(_ sender: NSMenuItem) {
         if let value = Int(sender.title) {

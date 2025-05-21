@@ -92,6 +92,14 @@
 "Run" = "Run";
 "Stop" = "Stop";
 "Uninstall" = "Uninstall";
+"1 sec" = "1 sec";
+"2 sec" = "2 sec";
+"3 sec" = "3 sec";
+"5 sec" = "5 sec";
+"10 sec" = "10 sec";
+"15 sec" = "15 sec";
+"30 sec" = "30 sec";
+"60 sec" = "60 sec";
 
 // Setup
 "Stats Setup" = "Configuration de Stats";
@@ -167,8 +175,8 @@
 "Uptime" = "Temps de fonctionnement";
 "Number of cores" = "%0 cœurs";
 "Number of threads" = "%0 threads";
-"Number of e-cores" = "%0 cœurs de perfor­mance";
-"Number of p-cores" = "%0 cœurs à haute effica­cité éner­gétique";
+"Number of e-cores" = "%0 cœurs à haute effica­cité éner­gétique";
+"Number of p-cores" = "%0 cœurs de perfor­mance";
 
 // Update
 "The latest version of Stats installed" = "La dernière version de Stats est installée";

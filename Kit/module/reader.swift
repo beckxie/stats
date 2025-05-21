@@ -41,7 +41,12 @@ open class Reader<T: Codable>: NSObject, ReaderInternal_p {
     public var log: NextLog {
         NextLog.shared.copy(category: "\(String(describing: self))")
     }
-    public var value: T?
+    private let valueQueue = DispatchQueue(label: "eu.exelban.readerActiveQueue")
+    private var _value: T?
+    public var value: T? {
+        get { self.valueQueue.sync { self._value } }
+        set { self.valueQueue.sync { self._value = newValue } }
+    }
     public var name: String {
         String(NSStringFromClass(type(of: self)).split(separator: ".").last ?? "unknown")
     }
@@ -98,14 +103,16 @@ open class Reader<T: Codable>: NSObject, ReaderInternal_p {
     }
     
     public func callback(_ value: T?) {
+        let moduleKey = "\(self.module.stringValue)@\(self.name)"
         self.value = value
         if let value {
             self.callbackHandler(value)
+            Remote.shared.send(key: moduleKey, value: value)
             if let ts = self.lastDBWrite, let interval = self.interval, Date().timeIntervalSince(ts) > interval * 10 {
-                DB.shared.insert(key: "\(self.module.stringValue)@\(self.name)", value: value, ts: self.history)
+                DB.shared.insert(key: moduleKey, value: value, ts: self.history)
                 self.lastDBWrite = Date()
             } else if self.lastDBWrite == nil {
-                DB.shared.insert(key: "\(self.module.stringValue)@\(self.name)", value: value, ts: self.history)
+                DB.shared.insert(key: moduleKey, value: value, ts: self.history)
                 self.lastDBWrite = Date()
             }
         }

@@ -12,6 +12,7 @@
 import Cocoa
 import Kit
 import IOKit.storage
+import CoreServices
 
 let kIONVMeSMARTUserClientTypeID = CFUUIDGetConstantUUIDWithBytes(nil,
                                                                   0xAA, 0x0F, 0xA6, 0xF9,
@@ -38,6 +39,7 @@ internal class CapacityReader: Reader<Disks> {
     private var SMART: Bool {
         Store.shared.bool(key: "\(ModuleType.disk.stringValue)_SMART", defaultValue: true)
     }
+    private var purgableSpace: [URL: (Date, Int64)] = [:]
     
     public override func read() {
         let keys: [URLResourceKey] = [.volumeNameKey]
@@ -96,6 +98,26 @@ internal class CapacityReader: Reader<Disks> {
     }
     
     private func freeDiskSpaceInBytes(_ path: URL) -> Int64 {
+        var stat = statfs()
+        if statfs(path.path, &stat) == 0 {
+            var purgeable: Int64 = 0
+            if self.purgableSpace[path] == nil {
+                let value = CSDiskSpaceGetRecoveryEstimate(path as NSURL)
+                purgeable = Int64(value)
+                self.purgableSpace[path] = (Date(), purgeable)
+            } else if let pair = self.purgableSpace[path] {
+                let delta = Date().timeIntervalSince(pair.0)
+                if delta > 60 {
+                    let value = CSDiskSpaceGetRecoveryEstimate(path as NSURL)
+                    purgeable = Int64(value)
+                    self.purgableSpace[path] = (Date(), purgeable)
+                } else {
+                    purgeable = pair.1
+                }
+            }
+            return (Int64(stat.f_bfree) * Int64(stat.f_bsize)) + Int64(purgeable)
+        }
+        
         do {
             if let url = URL(string: path.absoluteString) {
                 let values = try url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
@@ -186,10 +208,27 @@ internal class CapacityReader: Reader<Disks> {
         let data = NSData(bytes: temperatures, length: 2)
         data.getBytes(&temperature, length: 2)
         
+        let dataUnitsRead = self.extractUInt64(smartData.data_units_read)
+        let dataUnitsWritten = self.extractUInt64(smartData.data_units_written)
+        let bytesPerDataUnit: Int64 = 512 * 1000
+        
+        let powerCycles = withUnsafeBytes(of: smartData.power_cycles) { $0.load(as: UInt32.self) }
+        let powerOnHours = withUnsafeBytes(of: smartData.power_on_hours) { $0.load(as: UInt32.self) }
+        
         return smart_t(
             temperature: Int(UInt16(bigEndian: temperature) - 273),
-            life: 100 - Int(smartData.percent_used)
+            life: 100 - Int(smartData.percent_used),
+            totalRead: dataUnitsRead * bytesPerDataUnit,
+            totalWritten: dataUnitsWritten * bytesPerDataUnit,
+            powerCycles: Int(powerCycles),
+            powerOnHours: Int(powerOnHours)
         )
+    }
+    
+    private func extractUInt64(_ tuple: (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8)) -> Int64 {
+        let byteArray: [UInt8] = [tuple.0, tuple.1, tuple.2, tuple.3, tuple.4, tuple.5, tuple.6, tuple.7]
+        let uint64Value = byteArray.withUnsafeBytes { $0.load(as: UInt64.self) }
+        return uint64Value > UInt64(Int64.max) ? Int64.max : Int64(bitPattern: uint64Value)
     }
 }
 

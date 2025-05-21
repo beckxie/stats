@@ -68,11 +68,11 @@ public struct Bandwidth: Codable {
     var download: Int64 = 0
 }
 
-public struct Network_Usage: Codable {
+public struct Network_Usage: Codable, RemoteType {
     var bandwidth: Bandwidth = Bandwidth()
     var total: Bandwidth = Bandwidth()
     
-    var laddr: String? = nil // local ip
+    var laddr: Network_addr = Network_addr() // local ip
     var raddr: Network_addr = Network_addr() // remote ip
     
     var interface: Network_interface? = nil
@@ -84,13 +84,19 @@ public struct Network_Usage: Codable {
     mutating func reset() {
         self.bandwidth = Bandwidth()
         
-        self.laddr = nil
+        self.laddr = Network_addr()
         self.raddr = Network_addr()
         
         self.interface = nil
         self.connectionType = nil
         
         self.wifiDetails.reset()
+    }
+    
+    public func remote() -> Data? {
+        let addr = "\(self.laddr.v4 ?? ""),\(self.laddr.v6 ?? ""),\(self.raddr.v4 ?? ""),\(self.raddr.v6 ?? "")"
+        let string = "1,\(self.interface?.BSDName ?? ""),1,\(self.bandwidth.download),\(self.bandwidth.upload),\(addr)$"
+        return string.data(using: .utf8)
     }
 }
 
@@ -254,7 +260,9 @@ public class Network: Module {
                         case "public": replacement = value.raddr.v4 ?? value.raddr.v6 ?? "-"
                         case "publicV4": replacement = value.raddr.v4 ?? "-"
                         case "publicV6": replacement = value.raddr.v6 ?? "-"
-                        case "private": replacement = value.laddr ?? "-"
+                        case "private": replacement = value.laddr.v4 ?? value.laddr.v6 ?? "-"
+                        case "privateV4": replacement = value.laddr.v4 ?? "-"
+                        case "privateV6": replacement = value.laddr.v6 ?? "-"
                         default: return
                         }
                     case "$interface":
@@ -294,6 +302,13 @@ public class Network: Module {
                         }
                     case "$type":
                         replacement = value.connectionType?.rawValue ?? "-"
+                    case "$icmp":
+                        guard let connectivity = self.connectivityReader?.value else { return }
+                        switch pair.value {
+                        case "status": replacement = localizedString(connectivity.status ? "UP" : "DOWN")
+                        case "latency": replacement = "\(Int(connectivity.latency)) ms"
+                        default: return
+                        }
                     default: return
                     }
                     
