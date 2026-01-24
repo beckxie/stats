@@ -339,12 +339,20 @@ public func separatorView(_ title: String, origin: NSPoint = NSPoint(x: 0, y: 0)
     return view
 }
 
-public func popupRow(_ view: NSView, title: String, value: String) -> (LabelField, ValueField, NSView) {
-    let rowView: NSView = NSView(frame: NSRect(x: 0, y: 0, width: view.frame.width, height: 22))
+public func popupRow(_ view: NSView? = nil, title: String, value: String, multiline: Bool = false) -> (LabelField, ValueField, NSView) {
+    let lines: CGFloat = CGFloat(multiline ? value.filter { $0 == "\n" }.count + 1 : 1)
+    let width = view?.frame.width ?? 0
+    let height = multiline ? ((lines*16) + (22-16)): 22
+    
+    let rowView: NSView = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
     
     let labelWidth = title.widthOfString(usingFont: .systemFont(ofSize: 12, weight: .regular)) + 4
-    let labelView: LabelField = LabelField(frame: NSRect(x: 0, y: (22-16)/2, width: labelWidth, height: 16), title)
-    let valueView: ValueField = ValueField(frame: NSRect(x: labelWidth, y: (22-16)/2, width: rowView.frame.width - labelWidth, height: 16), value)
+    let labelView: LabelField = LabelField(frame: NSRect(x: 0, y: ((22-16)/2) + ((lines-1)*16), width: labelWidth, height: 16), title)
+    let valueView: ValueField = ValueField(frame: NSRect(x: labelWidth, y: (22-16)/2, width: rowView.frame.width - labelWidth, height: multiline ? 16*lines : 16), value)
+    
+    if multiline {
+        valueView.cell?.usesSingleLineMode = false
+    }
     
     rowView.addSubview(labelView)
     rowView.addSubview(valueView)
@@ -352,7 +360,7 @@ public func popupRow(_ view: NSView, title: String, value: String) -> (LabelFiel
     if let view = view as? NSStackView {
         rowView.heightAnchor.constraint(equalToConstant: rowView.bounds.height).isActive = true
         view.addArrangedSubview(rowView)
-    } else {
+    } else if let view {
         view.addSubview(rowView)
     }
     
@@ -1245,17 +1253,15 @@ public class PreferencesSection: NSStackView {
         
         self.container.orientation = .vertical
         self.container.wantsLayer = true
-        self.container.layer?.cornerRadius = 5
-        self.container.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.05).cgColor
-        self.container.layer?.borderWidth = 1
         self.container.layer?.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.025).cgColor
+        self.container.layer?.cornerRadius = Constants.Settings.margin
         self.container.edgeInsets = NSEdgeInsets(
-            top: Constants.Settings.margin/2,
+            top: Constants.Settings.margin/1.25,
             left: Constants.Settings.margin,
-            bottom: Constants.Settings.margin/2,
+            bottom: Constants.Settings.margin/1.25,
             right: Constants.Settings.margin
         )
-        self.container.spacing = Constants.Settings.margin/2
+        self.container.spacing = Constants.Settings.margin/1.25
         self.addArrangedSubview(self.container)
         
         for item in components {
@@ -1268,7 +1274,6 @@ public class PreferencesSection: NSStackView {
     }
     
     public override func updateLayer() {
-        self.container.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.05).cgColor
         self.container.layer?.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.025).cgColor
     }
     
@@ -1606,24 +1611,29 @@ public class PreferencesSwitch: NSStackView {
 }
 
 public class HelpHUD: NSPanel {
+    private let text: String
+
     public init(_ text: String, origin: CGPoint = CGPoint(x: 0, y: 0), size: CGSize = CGSize(width: 420, height: 300)) {
+        self.text = text
         super.init(
             contentRect: NSRect(origin: origin, size: size),
-            styleMask: [.hudWindow, .titled, .closable],
+            styleMask: [.hudWindow, .utilityWindow, .titled, .closable],
             backing: .buffered, defer: false
         )
         self.isFloatingPanel = true
         self.isMovableByWindowBackground = true
         self.level = .floating
         self.title = "Help"
-        
-        let webView = WKWebView()
-        webView.setValue(false, forKey: "drawsBackground")
-        webView.loadHTMLString("<html><body style='color: #ffffff;margin: 10px;'>\(text)</body></html>", baseURL: nil)
-        self.contentView = webView
     }
     
     public func show() {
+        if self.contentView as? WKWebView == nil {
+            let webView = WKWebView()
+            webView.setValue(false, forKey: "drawsBackground")
+            webView.loadHTMLString("<html><body style='color: #ffffff;margin: 10px;'>\(self.text)</body></html>", baseURL: nil)
+            self.contentView = webView
+        }
+        
         self.makeKeyAndOrderFront(self)
         self.center()
     }
@@ -1822,4 +1832,15 @@ public class GPUStressTest {
             commandBuffer.waitUntilCompleted()
         }
     }
+}
+
+public func isWidgetActive(_ defaults: UserDefaults?, _ widgets: [String]) -> Bool {
+    for name in widgets {
+        guard let lastUpdate = defaults?.double(forKey: name) else { return false }
+        let timeSinceUpdate = Date().timeIntervalSince1970 - lastUpdate
+        if timeSinceUpdate < 60 {
+            return true
+        }
+    }
+    return false
 }

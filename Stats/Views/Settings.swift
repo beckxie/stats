@@ -71,7 +71,9 @@ class SettingsWindow: NSWindow, NSWindowDelegate, NSToolbarDelegate {
         self.toolbar = newToolbar
         self.contentViewController = sidebarViewController
         self.titlebarAppearsTransparent = true
-        self.backgroundColor = .clear
+        if #unavailable(macOS 26.0) {
+            self.backgroundColor = .clear
+        }
         self.positionCenter()
         self.setIsVisible(false)
         
@@ -80,7 +82,6 @@ class SettingsWindow: NSWindow, NSWindowDelegate, NSToolbarDelegate {
         windowController.loadWindow()
         
         NSLayoutConstraint.activate([
-            self.sidebarView.widthAnchor.constraint(equalToConstant: 180),
             self.mainView.widthAnchor.constraint(equalToConstant: 540),
             self.mainView.container.widthAnchor.constraint(equalToConstant: 540),
             self.mainView.container.topAnchor.constraint(equalTo: (self.contentLayoutGuide as! NSLayoutGuide).topAnchor),
@@ -126,6 +127,7 @@ class SettingsWindow: NSWindow, NSWindowDelegate, NSToolbarDelegate {
                 switchButton.state = .on
                 switchButton.action = #selector(self.toggleEnable)
                 switchButton.target = self
+                switchButton.controlSize = .small
                 toggleBtn = switchButton
             } else {
                 let button: NSButton = NSButton()
@@ -143,6 +145,7 @@ class SettingsWindow: NSWindow, NSWindowDelegate, NSToolbarDelegate {
             let toolbarItem = NSToolbarItem(itemIdentifier: itemIdentifier)
             toolbarItem.toolTip = localizedString("Toggle the module")
             toolbarItem.view = toggleBtn
+            toolbarItem.isBordered = false
             
             return toolbarItem
         default:
@@ -273,12 +276,8 @@ private class SidebarView: NSStackView {
     private var pauseButton: NSButton? = nil
     
     private var pauseState: Bool {
-        get {
-            return Store.shared.bool(key: "pause", defaultValue: false)
-        }
-        set {
-            Store.shared.set(key: "pause", value: newValue)
-        }
+        get { Store.shared.bool(key: "pause", defaultValue: false) }
+        set { Store.shared.set(key: "pause", value: newValue) }
     }
     
     private var dashboardIcon: NSImage {
@@ -288,7 +287,7 @@ private class SidebarView: NSStackView {
         return NSImage(named: NSImage.Name("apps"))!
     }
     private var settingsIcon: NSImage {
-        if #available(macOS 11.0, *), let icon = NSImage(systemSymbolName: "gear", accessibilityDescription: nil) {
+        if #available(macOS 11.0, *), let icon = iconFromSymbol(name: "gear", scale: .large) {
             return icon
         }
         return NSImage(named: NSImage.Name("settings"))!
@@ -340,7 +339,6 @@ private class SidebarView: NSStackView {
         
         self.scrollView.stackView.addArrangedSubview(MenuItem(icon: self.dashboardIcon, title: "Dashboard"))
         self.scrollView.stackView.addArrangedSubview(spacer)
-        self.scrollView.stackView.addArrangedSubview(MenuItem(icon: self.settingsIcon, title: "Settings"))
         
         self.supportPopover.behavior = .transient
         self.supportPopover.contentViewController = self.supportView()
@@ -355,8 +353,9 @@ private class SidebarView: NSStackView {
         let pauseButton = self.makeButton(title: localizedString("Pause the Stats"), image: self.pauseState ? self.resumeIcon : self.pauseIcon, action: #selector(togglePause))
         self.pauseButton = pauseButton
         
-        additionalButtons.addArrangedSubview(self.makeButton(title: localizedString("Report a bug"), image: self.bugIcon, action: #selector(reportBug)))
+        additionalButtons.addArrangedSubview(self.makeButton(title: localizedString("Settings"), image: self.settingsIcon, action: #selector(openSettings)))
         additionalButtons.addArrangedSubview(self.makeButton(title: localizedString("Support the application"), image: self.supportIcon, action: #selector(donate)))
+        additionalButtons.addArrangedSubview(self.makeButton(title: localizedString("Report a bug"), image: self.bugIcon, action: #selector(reportBug)))
         additionalButtons.addArrangedSubview(pauseButton)
         additionalButtons.addArrangedSubview(self.makeButton(title: localizedString("Close application"), image: self.closeIcon, action: #selector(closeApp)))
         
@@ -398,10 +397,6 @@ private class SidebarView: NSStackView {
             let menu: NSView = MenuItem(icon: m.config.icon, title: m.config.name)
             self.scrollView.stackView.insertArrangedSubview(menu, at: 2)
         }
-        
-        let spacer = NSView()
-        spacer.heightAnchor.constraint(equalToConstant: 10).isActive = true
-        self.scrollView.stackView.insertArrangedSubview(spacer, at: self.scrollView.stackView.subviews.count - 1)
     }
     
     private func makeButton(title: String, image: NSImage, action: Selector) -> NSButton {
@@ -417,9 +412,9 @@ private class SidebarView: NSStackView {
         button.action = action
         button.target = self
         button.focusRingType = .none
-        button.widthAnchor.constraint(equalToConstant: 45).isActive = true
+        button.widthAnchor.constraint(equalToConstant: 33).isActive = true
         
-        let rect = NSRect(x: 0, y: 0, width: 45, height: 45)
+        let rect = NSRect(x: 0, y: 0, width: 33, height: 45)
         let trackingArea = NSTrackingArea(
             rect: rect,
             options: [NSTrackingArea.Options.activeAlways, NSTrackingArea.Options.mouseEnteredAndExited, NSTrackingArea.Options.activeInActiveApp],
@@ -433,9 +428,9 @@ private class SidebarView: NSStackView {
     
     private func supportView() -> NSViewController {
         let vc: NSViewController = NSViewController(nibName: nil, bundle: nil)
-        let view: NSStackView = NSStackView(frame: NSRect(x: 0, y: 0, width: 160, height: 40))
-        view.spacing = 7
-        view.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 0)
+        let view: NSStackView = NSStackView(frame: NSRect(x: 0, y: 0, width: 180, height: 54))
+        view.spacing = 10
+        view.edgeInsets = NSEdgeInsets(top: 0, left: 15, bottom: 0, right: 0)
         view.orientation = .horizontal
         
         let github = SupportButtonView(name: "GitHub Sponsors", image: "github", action: {
@@ -460,8 +455,12 @@ private class SidebarView: NSStackView {
         return vc
     }
     
+    @objc private func openSettings() {
+        NotificationCenter.default.post(name: .openModuleSettings, object: nil, userInfo: ["module": "Settings"])
+    }
+    
     @objc private func reportBug() {
-        NSWorkspace.shared.open(URL(string: "https://github.com/exelban/stats/issues/new")!)
+        NSWorkspace.shared.open(URL(string: "https://github.com/exelban/stats/issues/new?template=bug_report.md")!)
     }
     
     @objc private func donate(_ sender: NSButton) {

@@ -69,7 +69,7 @@
 "Square" = "제곱";
 "Cube" = "세제곱";
 "Logarithmic" = "로그";
-"Fixed scale" = "Fixed";
+"Fixed scale" = "고정 스케일";
 "Cores" = "코어 수";
 "Settings" = "설정";
 "Name" = "이름";
@@ -142,7 +142,7 @@
 "Open dashboard" = "대시보드 열기";
 "No notifications available in this module" = "이 모듈에서 사용할 수 있는 알림이 없습니다";
 "Open Calendar" = "캘린더 열기";
-"Toggle the module" = "Toggle the module";
+"Toggle the module" = "모듈 전환";
 
 // Application settings
 "Update application" = "애플리케이션 업데이트";
@@ -177,6 +177,8 @@
 "Number of threads" = "%0 스레드";
 "Number of e-cores" = "%0 효율 코어";
 "Number of p-cores" = "%0 성능 코어";
+"Disks" = "Disks";
+"Display" = "Display";
 
 // Update
 "The latest version of Stats installed" = "최신 버전의 Stats가 설치되어 있습니다";
@@ -414,6 +416,12 @@
 "Download speed" = "Download";
 "Address" = "Address";
 "WiFi network" = "WiFi network";
+"Local IP changed" = "Local IP has changed";
+"Public IP changed" = "Public IP has changed";
+"Previous IP" = "Previous IP: %0";
+"New IP" = "New IP: %0";
+"Internet connection lost" = "Internet connection lost";
+"Internet connection established" = "Internet connection established";
 
 // Battery
 "Level" = "잔량";

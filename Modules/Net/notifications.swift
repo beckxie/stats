@@ -35,6 +35,11 @@ class Notifications: NotificationsWrapper {
     private var publicIP: String?
     private var wifi: String?
     
+    private var localIPCount: Int = 0
+    private var localIPThreshold: Int = 3
+    private var publicIPCount: Int = 0
+    private var publicIPThreshold: Int = 3
+    
     private var connectionInit: Bool = false
     private var interfaceInit: Bool = false
     private var localIPInit: Bool = false
@@ -87,10 +92,10 @@ class Notifications: NotificationsWrapper {
             self.interfaceInit = true
         }
         if !self.localIPInit {
-            if let v4 = value.raddr.v4 {
+            if let v4 = value.laddr.v4 {
                 self.localIP = v4
                 self.localIPInit = true
-            } else if let v6 = value.raddr.v6 {
+            } else if let v6 = value.laddr.v6 {
                 self.localIP = v6
                 self.localIPInit = true
             }
@@ -117,17 +122,51 @@ class Notifications: NotificationsWrapper {
         }
         
         if self.localIPState {
-            if value.laddr.v4 ?? value.laddr.v6 != self.localIP {
-                self.newNotification(id: self.localID, title: localizedString("Local IP changed"), subtitle: nil)
+            let addr = value.laddr.v4 ?? value.laddr.v6
+            if addr != self.localIP {
+                self.localIPCount += 1
+                if self.localIPCount >= self.localIPThreshold {
+                    var subtitle = ""
+                    if let prev = self.localIP {
+                        subtitle = localizedString("Previous IP", prev)
+                    }
+                    if let new = addr {
+                        if !subtitle.isEmpty {
+                            subtitle += "\n"
+                        }
+                        subtitle += localizedString("New IP", new)
+                    }
+                    self.newNotification(id: self.localID, title: localizedString("Local IP changed"), subtitle: subtitle)
+                    self.localIP = addr
+                    self.localIPCount = 0
+                }
+            } else {
+                self.localIPCount = 0
             }
-            self.localIP = value.laddr.v4 ?? value.laddr.v6
         }
         
         if self.publicIPState {
-            if value.raddr.v4 ?? value.raddr.v6 != self.publicIP {
-                self.newNotification(id: self.publicID, title: localizedString("Public IP changed"), subtitle: nil)
+            let addr = value.raddr.v4 ?? value.raddr.v6
+            if addr != self.publicIP {
+                self.publicIPCount += 1
+                if self.publicIPCount >= self.publicIPThreshold {
+                    var subtitle = ""
+                    if let prev = self.publicIP {
+                        subtitle = localizedString("Previous IP", prev)
+                    }
+                    if let new = addr {
+                        if !subtitle.isEmpty {
+                            subtitle += "\n"
+                        }
+                        subtitle += localizedString("New IP", new)
+                    }
+                    self.newNotification(id: self.publicID, title: localizedString("Public IP changed"), subtitle: subtitle)
+                    self.publicIP = addr
+                    self.publicIPCount = 0
+                }
+            } else {
+                self.publicIPCount = 0
             }
-            self.publicIP = value.raddr.v4 ?? value.raddr.v6
         }
         
         if self.wifiState {

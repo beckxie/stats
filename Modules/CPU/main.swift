@@ -11,7 +11,7 @@ import Kit
 import WidgetKit
 
 public struct CPU_Load: Codable, RemoteType {
-    var totalUsage: Double = 0
+    public var totalUsage: Double = 0
     var usagePerCore: [Double] = []
     var usageECores: Double? = nil
     var usagePCores: Double? = nil
@@ -47,6 +47,17 @@ public struct CPU_Limit: Codable {
     var speed: Int = 0
 }
 
+public struct CPU_AverageLoad: Codable, RemoteType {
+    var load1: Double = 0
+    var load5: Double = 0
+    var load15: Double = 0
+    
+    public func remote() -> Data? {
+        let string = "1,1,\(self.load1),\(self.load5),\(self.load15)$"
+        return string.data(using: .utf8)
+    }
+}
+
 public class CPU: Module {
     private let popupView: Popup
     private let settingsView: Settings
@@ -58,7 +69,7 @@ public class CPU: Module {
     private var temperatureReader: TemperatureReader? = nil
     private var frequencyReader: FrequencyReader? = nil
     private var limitReader: LimitReader? = nil
-    private var averageReader: AverageReader? = nil
+    private var averageLoadReader: AverageLoadReader? = nil
     
     private var usagePerCoreState: Bool {
         Store.shared.bool(key: "\(self.config.name)_usagePerCore", defaultValue: false)
@@ -103,6 +114,10 @@ public class CPU: Module {
         return color.additional as! NSColor
     }
     
+    private var systemWidgetsUpdatesState: Bool {
+        Store.shared.bool(key: "systemWidgetsUpdates_state", defaultValue: true)
+    }
+    
     public init() {
         self.settingsView = Settings(.CPU)
         self.popupView = Popup(.CPU)
@@ -124,7 +139,7 @@ public class CPU: Module {
         self.processReader = ProcessReader(.CPU) { [weak self] value in
             self?.popupView.processCallback(value)
         }
-        self.averageReader = AverageReader(.CPU, popup: true) { [weak self] value in
+        self.averageLoadReader = AverageLoadReader(.CPU, popup: true) { [weak self] value in
             self?.popupView.averageCallback(value)
         }
         self.temperatureReader = TemperatureReader(.CPU, popup: true) { [weak self] value in
@@ -163,7 +178,7 @@ public class CPU: Module {
             self.temperatureReader,
             self.frequencyReader,
             self.limitReader,
-            self.averageReader
+            self.averageLoadReader
         ])
     }
     
@@ -222,10 +237,14 @@ public class CPU: Module {
             }
         }
         
-        if #available(macOS 11.0, *) {
-            guard let blobData = try? JSONEncoder().encode(value) else { return }
-            self.userDefaults?.set(blobData, forKey: "CPU@LoadReader")
-            WidgetCenter.shared.reloadTimelines(ofKind: CPU_entry.kind)
+        if self.systemWidgetsUpdatesState {
+            if #available(macOS 11.0, *) {
+                if isWidgetActive(self.userDefaults, [CPU_entry.kind, "UnitedWidget"]), let blobData = try? JSONEncoder().encode(value) {
+                    self.userDefaults?.set(blobData, forKey: "CPU@LoadReader")
+                }
+                WidgetCenter.shared.reloadTimelines(ofKind: CPU_entry.kind)
+                WidgetCenter.shared.reloadTimelines(ofKind: "UnitedWidget")
+            }
         }
     }
 }

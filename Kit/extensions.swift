@@ -294,7 +294,7 @@ public extension NSView {
     }
     
     func selectView(action: Selector, items: [KeyValue_p], selected: String) -> NSPopUpButton {
-        let select: NSPopUpButton = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 50, height: 28))
+        let select: NSPopUpButton = NSPopUpButton(frame: NSRect(x: 0, y: 4, width: 50, height: 28))
         select.target = self
         select.action = action
         
@@ -350,11 +350,12 @@ public extension NSView {
         return button
     }
     
-    func textView(_ value: String) -> NSTextField {
+    func textView(_ value: String, alignment: NSTextAlignment = .left) -> NSTextField {
         let field: NSTextField = TextView()
         field.font = NSFont.systemFont(ofSize: 13, weight: .regular)
         field.stringValue = value
         field.isSelectable = true
+        field.alignment = alignment
         return field
     }
     
@@ -444,7 +445,7 @@ public class FlippedStackView: NSStackView {
     public override var isFlipped: Bool { return true }
 }
 
-public class ScrollableStackView: NSView {
+open class ScrollableStackView: NSView {
     public var stackView: NSStackView = FlippedStackView()
     
     private let clipView: NSClipView = NSClipView()

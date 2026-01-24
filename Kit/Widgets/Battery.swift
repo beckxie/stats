@@ -174,7 +174,7 @@ public class BatteryWidget: WidgetWrapper {
         batteryPointSeparator.line(to: CGPoint(x: bPX, y: batteryFrame.bounds.origin.y + batteryFrame.bounds.height))
         ctx.saveGState()
         ctx.setBlendMode(.destinationOut)
-        NSColor.textColor.set()
+        NSColor.white.set()
         batteryPointSeparator.lineWidth = borderWidth
         batteryPointSeparator.stroke()
         ctx.restoreGState()
@@ -407,6 +407,7 @@ public class BatteryWidget: WidgetWrapper {
         }
         
         if updated {
+            self.needsDisplay = true
             DispatchQueue.main.async(execute: {
                 self.display()
             })
@@ -537,21 +538,29 @@ public class BatteryDetailsWidget: WidgetWrapper {
             if let percentage = self.percentage {
                 value = "\(Int((percentage.rounded(toPlaces: 2)) * 100))%"
             }
-            width = self.drawTwoRows(
-                first: value,
-                second: Double(self.time*60).printSecondsToHoursMinutesSeconds(short: isShortTimeFormat),
-                x: x
-            ).rounded(.up)
+            if self.time > 0 {
+                width = self.drawTwoRows(
+                    first: value,
+                    second: Double(self.time*60).printSecondsToHoursMinutesSeconds(short: isShortTimeFormat),
+                    x: x
+                ).rounded(.up)
+            } else {
+                width = self.drawOneRow(value: value, x: x).rounded(.up)
+            }
         case "timeAndPercentage":
             var value = "n/a"
             if let percentage = self.percentage {
                 value = "\(Int((percentage.rounded(toPlaces: 2)) * 100))%"
             }
-            width = self.drawTwoRows(
-                first: Double(self.time*60).printSecondsToHoursMinutesSeconds(short: isShortTimeFormat),
-                second: value,
-                x: x
-            ).rounded(.up)
+            if self.time > 0 {
+                width = self.drawTwoRows(
+                    first: Double(self.time*60).printSecondsToHoursMinutesSeconds(short: isShortTimeFormat),
+                    second: value,
+                    x: x
+                ).rounded(.up)
+            } else {
+                width = self.drawOneRow(value: value, x: x).rounded(.up)
+            }
         default: break
         }
         
@@ -615,6 +624,7 @@ public class BatteryDetailsWidget: WidgetWrapper {
         }
         
         if updated {
+            self.needsDisplay = true
             DispatchQueue.main.async(execute: {
                 self.display()
             })

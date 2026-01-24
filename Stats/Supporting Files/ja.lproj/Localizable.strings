@@ -26,8 +26,8 @@
 "Open Battery settings" = "バッテリーの設定を開く";
 "Bluetooth" = "Bluetooth";
 "Open Bluetooth settings" = "Bluetooth の設定を開く";
-"Clock" = "Clock";
-"Open Clock settings" = "Open clock settings";
+"Clock" = "時計";
+"Open Clock settings" = "時計の設定を開く";
 
 // Words
 "Unknown" = "不明";
@@ -177,6 +177,8 @@
 "Number of threads" = "%0 スレッド";
 "Number of e-cores" = "%0 高効率コア";
 "Number of p-cores" = "%0 高性能コア";
+"Disks" = "Disks";
+"Display" = "Display";
 
 // Update
 "The latest version of Stats installed" = "最新の Stats がインストールされています";
@@ -414,6 +416,12 @@
 "Download speed" = "Download";
 "Address" = "Address";
 "WiFi network" = "WiFi network";
+"Local IP changed" = "Local IP has changed";
+"Public IP changed" = "Public IP has changed";
+"Previous IP" = "Previous IP: %0";
+"New IP" = "New IP: %0";
+"Internet connection lost" = "Internet connection lost";
+"Internet connection established" = "Internet connection established";
 
 // Battery
 "Level" = "充電残量";

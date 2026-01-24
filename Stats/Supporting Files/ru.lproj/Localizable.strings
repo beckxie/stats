@@ -177,6 +177,8 @@
 "Number of threads" = "%0 потоков";
 "Number of e-cores" = "%0 энергоэффективных ядер";
 "Number of p-cores" = "%0 производительных ядер";
+"Disks" = "Диски";
+"Display" = "Монитор";
 
 // Update
 "The latest version of Stats installed" = "Установлена последняя версия";
@@ -414,6 +416,12 @@
 "Download speed" = "Загрузка";
 "Address" = "Адрес";
 "WiFi network" = "Сеть Wi-Fi";
+"Local IP changed" = "Локальный IP-адрес был изменён";
+"Public IP changed" = "Публичный IP-адрес был изменён";
+"Previous IP" = "Предыдущий IP-адрес: %0";
+"New IP" = "Новый IP-адрес: %0";
+"Internet connection lost" = "Соединение с интернетом потеряно";
+"Internet connection established" = "Соединение с интернетом восстановлено";
 
 // Battery
 "Level" = "Уровень заряда";
@@ -421,7 +429,7 @@
 "AC Power" = "Сеть";
 "Battery Power" = "Аккумулятор";
 "Time" = "Время";
-"Health" = "Состояние аккумулятора";
+"Health" = "Состояние";
 "Amperage" = "Сила тока";
 "Voltage" = "Напряжение";
 "Cycles" = "Количество циклов";

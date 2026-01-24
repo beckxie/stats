@@ -203,6 +203,10 @@ public class LineChartView: NSView {
         if !transparent {
             gradientColor = color.withAlphaComponent(0.8)
         }
+        let gradient = NSGradient(colors: [
+            gradientColor.withAlphaComponent(0.5),
+            gradientColor.withAlphaComponent(1.0)
+        ])
         
         let offset: CGFloat = 1 / (NSScreen.main?.backingScaleFactor ?? 1)
         let height: CGFloat = self.frame.height - offset
@@ -262,8 +266,12 @@ public class LineChartView: NSView {
             path.line(to: CGPoint(x: linePoints[linePoints.count-1].x, y: zero))
             path.line(to: CGPoint(x: linePoints[0].x, y: zero))
             path.close()
-            gradientColor.set()
-            path.fill()
+            if let gradient {
+                gradient.draw(in: path, angle: 90)
+            } else {
+                gradientColor.set()
+                path.fill()
+            }
         }
         
         if minMax {
@@ -673,7 +681,7 @@ public class HalfCircleGraphView: NSView {
         context.setShouldAntialias(true)
         
         context.setLineWidth(arcWidth)
-        context.setLineCap(.butt)
+        context.setLineCap(.round)
         
         var segments: [circle_segment] = [
             circle_segment(value: value, color: color)
@@ -844,7 +852,6 @@ public class BarChartView: NSView {
         let blocks: Int = 16
         let spacing: CGFloat = 2
         let count: CGFloat = CGFloat(values.count)
-        // swiftlint:disable:next empty_count
         guard count > 0, self.frame.width > 0, self.frame.height > 0 else { return }
         
         let partitionSize: CGSize = CGSize(width: (self.frame.width - (count*spacing)) / count, height: self.frame.height)

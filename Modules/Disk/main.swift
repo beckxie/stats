@@ -51,7 +51,7 @@ public struct drive: Codable {
     var activity: stats = stats()
     var smart: smart_t? = nil
     
-    var percentage: Double {
+    public var percentage: Double {
         let total = self.size
         let free = self.free
         var usedSpace = total - free
@@ -221,6 +221,10 @@ public class Disk: Module {
         Store.shared.string(key: "\(self.name)_textWidgetValue", defaultValue: "$capacity.free/$capacity.total")
     }
     
+    private var systemWidgetsUpdatesState: Bool {
+        Store.shared.bool(key: "systemWidgetsUpdates_state", defaultValue: true)
+    }
+    
     public init() {
         super.init(
             moduleType: .disk,
@@ -335,10 +339,14 @@ public class Disk: Module {
             }
         }
         
-        if #available(macOS 11.0, *) {
-            guard let blobData = try? JSONEncoder().encode(d) else { return }
-            self.userDefaults?.set(blobData, forKey: "Disk@CapacityReader")
-            WidgetCenter.shared.reloadTimelines(ofKind: Disk_entry.kind)
+        if self.systemWidgetsUpdatesState {
+            if #available(macOS 11.0, *) {
+                if isWidgetActive(self.userDefaults, [Disk_entry.kind, "UnitedWidget"]), let blobData = try? JSONEncoder().encode(d) {
+                    self.userDefaults?.set(blobData, forKey: "Disk@CapacityReader")
+                }
+                WidgetCenter.shared.reloadTimelines(ofKind: Disk_entry.kind)
+                WidgetCenter.shared.reloadTimelines(ofKind: "UnitedWidget")
+            }
         }
     }
     

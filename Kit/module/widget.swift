@@ -213,6 +213,12 @@ open class WidgetWrapper: NSView, widget_p {
         return width
     }
     
+    public func redraw() {
+        DispatchQueue.main.async { [weak self] in
+            self?.display()
+        }
+    }
+    
     open func settings() -> NSView { return NSView() }
     
     open override func mouseDown(with event: NSEvent) {
@@ -232,9 +238,7 @@ public class SWidget {
     public var item: widget_p
     
     public var isActive: Bool {
-        get {
-            self.list.contains{ $0 == self.type }
-        }
+        get { self.list.contains{ $0 == self.type } }
         set {
             if newValue {
                 self.list.append(self.type)
@@ -251,12 +255,8 @@ public class SWidget {
         NextLog.shared.copy(category: self.module)
     }
     public var position: Int {
-        get {
-            Store.shared.int(key: "\(self.module)_\(self.type)_position", defaultValue: 0)
-        }
-        set {
-            Store.shared.set(key: "\(self.module)_\(self.type)_position", value: newValue)
-        }
+        get { Store.shared.int(key: "\(self.module)_\(self.type)_position", defaultValue: 0) }
+        set { Store.shared.set(key: "\(self.module)_\(self.type)_position", value: newValue) }
     }
     
     private var list: [widget_t] {
@@ -264,9 +264,7 @@ public class SWidget {
             let string = Store.shared.string(key: "\(self.module)_widget", defaultValue: self.defaultWidget.rawValue)
             return string.split(separator: ",").map{ (widget_t(rawValue: String($0)) ?? .unknown)}
         }
-        set {
-            Store.shared.set(key: "\(self.module)_widget", value: newValue.map{ $0.rawValue }.joined(separator: ","))
-        }
+        set { Store.shared.set(key: "\(self.module)_widget", value: newValue.map{ $0.rawValue }.joined(separator: ",")) }
     }
     
     private var menuBarItem: NSStatusItem? = nil
@@ -326,18 +324,12 @@ public class SWidget {
     
     public func setMenuBarItem(state: Bool) {
         if state {
-            let prevTag = "NSStatusItem Preferred Position \(self.module)_\(self.type.name())"
-            let prevPosition = Store.shared.int(key: prevTag, defaultValue: -1)
-            if prevPosition != -1 {
-                Store.shared.set(key: "NSStatusItem Preferred Position \(self.module)_\(self.type.rawValue)", value: prevPosition)
-                Store.shared.remove(prevTag)
-            }
-            
             restoreNSStatusItemPosition(id: "\(self.module)_\(self.type.rawValue)")
-            
             DispatchQueue.main.async(execute: {
                 self.menuBarItem = NSStatusBar.system.statusItem(withLength: self.item.frame.width)
-                self.menuBarItem?.autosaveName = "\(self.module)_\(self.type.rawValue)"
+                DispatchQueue.main.async(execute: {
+                    self.menuBarItem?.autosaveName = "\(self.module)_\(self.type.rawValue)"
+                })
                 if self.item.frame.origin.x != self.originX {
                     self.item.setFrameOrigin(NSPoint(x: self.originX, y: self.item.frame.origin.y))
                 }
@@ -401,12 +393,8 @@ public class MenuBar {
     
     private var _active: Bool = false
     public var active: Bool {
-        get {
-            self.queue.sync { self._active }
-        }
-        set {
-            self.queue.sync { self._active = newValue }
-        }
+        get { self.queue.sync { self._active } }
+        set { self.queue.sync { self._active = newValue } }
     }
     
     init(moduleName: String) {
@@ -483,7 +471,9 @@ public class MenuBar {
             if state && self.active {
                 restoreNSStatusItemPosition(id: self.moduleName)
                 self.menuBarItem = NSStatusBar.system.statusItem(withLength: 0)
-                self.menuBarItem?.autosaveName = self.moduleName
+                DispatchQueue.main.async(execute: {
+                    self.menuBarItem?.autosaveName = self.moduleName
+                })
                 self.menuBarItem?.isVisible = true
                 
                 self.menuBarItem?.button?.addSubview(self.view)
@@ -576,8 +566,6 @@ public class MenuBarView: NSView {
     public func removeWidget(type: widget_t) {
         if let view = self.subviews.first(where: { $0.identifier == NSUserInterfaceItemIdentifier(type.rawValue) }) {
             view.removeFromSuperview()
-        } else {
-            error("\(type) could not be removed from the one view because not found!")
         }
     }
     

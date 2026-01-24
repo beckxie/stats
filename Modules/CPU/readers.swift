@@ -113,9 +113,9 @@ internal class LoadReader: Reader<CPU_Load> {
         let niceDiff = Double(cpuInfo!.cpu_ticks.3 - self.previousInfo.cpu_ticks.3)
         let totalTicks = sysDiff + userDiff + niceDiff + idleDiff
         
-        let system = sysDiff  / totalTicks
-        let user = userDiff  / totalTicks
-        let idle = idleDiff  / totalTicks
+        let system = sysDiff / totalTicks
+        let user = userDiff / totalTicks
+        let idle = idleDiff / totalTicks
         
         if !system.isNaN {
             self.response.systemLoad  = system
@@ -130,17 +130,17 @@ internal class LoadReader: Reader<CPU_Load> {
         self.response.totalUsage = self.response.systemLoad + self.response.userLoad
         
         if let cores = self.cores {
-            let eCoresList: [Double] = cores.filter({ $0.type == .efficiency }).compactMap { (c: core_s) in
+            let eCoresList: [Double] = cores.filter({ $0.type == .efficiency }).enumerated().compactMap { (i, c) -> Double? in
                 if self.response.usagePerCore.indices.contains(Int(c.id)) {
                     return self.response.usagePerCore[Int(c.id)]
                 }
-                return 0
+                return i < usagePerCore.count ? usagePerCore[i] : 0
             }
-            let pCoresList: [Double] = cores.filter({ $0.type == .performance }).compactMap { (c: core_s) in
+            let pCoresList: [Double] = cores.filter({ $0.type == .performance }).enumerated().compactMap { (i, c) -> Double? in
                 if self.response.usagePerCore.indices.contains(Int(c.id)) {
                     return self.response.usagePerCore[Int(c.id)]
                 }
-                return 0
+                return i < usagePerCore.count ? usagePerCore[i] : 0
             }
             
             self.response.usageECores = eCoresList.reduce(0, +)/Double(eCoresList.count)
@@ -533,11 +533,13 @@ public class LimitReader: Reader<CPU_Limit> {
     }
 }
 
-public class AverageReader: Reader<[Double]> {
+public class AverageLoadReader: Reader<CPU_AverageLoad> {
     private let title: String = "CPU"
+    private var load: CPU_AverageLoad = CPU_AverageLoad()
     
     public override func setup() {
-        self.setInterval(60)
+        self.popup = false
+        self.setInterval(15)
     }
     
     public override func read() {
@@ -565,16 +567,19 @@ public class AverageReader: Reader<[Double]> {
         let str = line.trimmingCharacters(in: .whitespaces)
         let strFind = str.findAndCrop(pattern: "(\\d+(.|,)\\d+ *){3}$")
         let strArr = strFind.cropped.split(separator: " ")
-        guard strArr.count == 3 else {
-            return
-        }
+        guard strArr.count == 3 else { return }
         
         var list: [Double] = []
         strArr.forEach { (n: Substring) in
             let value = Double(n.replacingOccurrences(of: ",", with: ".")) ?? 0
             list.append(value)
         }
+        guard list.count == 3 else { return }
         
-        self.callback(list)
+        self.load.load1 = list[0]
+        self.load.load5 = list[1]
+        self.load.load15 = list[2]
+        
+        self.callback(self.load)
     }
 }

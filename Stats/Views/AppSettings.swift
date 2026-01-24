@@ -39,9 +39,14 @@ class ApplicationSettings: NSStackView {
         set { Store.shared.set(key: "CombinedModules_popup", value: newValue) }
     }
     
+    private var systemWidgetsUpdatesState: Bool {
+        get { Store.shared.bool(key: "systemWidgetsUpdates_state", defaultValue: true) }
+        set { Store.shared.set(key: "systemWidgetsUpdates_state", value: newValue) }
+    }
+    
     private var updateSelector: NSPopUpButton?
     private var startAtLoginBtn: NSSwitch?
-    private var telemetryBtn: NSSwitch?
+    private var remoteControlBtn: NSSwitch?
     
     private var combinedModulesView: PreferencesSection?
     private var fanHelperView: PreferencesSection?
@@ -64,7 +69,7 @@ class ApplicationSettings: NSStackView {
         
         let scrollView = ScrollableStackView(orientation: .vertical)
         scrollView.stackView.edgeInsets = NSEdgeInsets(
-            top: Constants.Settings.margin,
+            top: 0,
             left: Constants.Settings.margin,
             bottom: Constants.Settings.margin,
             right: Constants.Settings.margin
@@ -82,10 +87,6 @@ class ApplicationSettings: NSStackView {
             action: #selector(self.toggleLaunchAtLogin),
             state: LaunchAtLogin.isEnabled
         )
-        self.telemetryBtn = switchView(
-            action: #selector(self.toggleTelemetry),
-            state: Telemetry.shared.isEnabled
-        )
         
         scrollView.stackView.addArrangedSubview(PreferencesSection([
             PreferencesRow(localizedString("Check for updates"), component: self.updateSelector!),
@@ -98,8 +99,14 @@ class ApplicationSettings: NSStackView {
                 action: #selector(self.toggleDock),
                 state: Store.shared.bool(key: "dockIcon", defaultValue: false)
             )),
-            PreferencesRow(localizedString("Start at login"), component: self.startAtLoginBtn!),
-            PreferencesRow(localizedString("Share anonymous telemetry"), component: self.telemetryBtn!)
+            PreferencesRow(localizedString("Start at login"), component: self.startAtLoginBtn!)
+        ]))
+        
+        scrollView.stackView.addArrangedSubview(PreferencesSection([
+            PreferencesRow(localizedString("System widgets updates"), component: switchView(
+                action: #selector(self.toggleSystemWidgetsUpdatesState),
+                state: self.systemWidgetsUpdatesState
+            ))
         ]))
         
         self.combinedModulesView = PreferencesSection([
@@ -128,19 +135,25 @@ class ApplicationSettings: NSStackView {
         self.combinedModulesView?.setRowVisibility(3, newState: self.combinedModulesState)
         self.combinedModulesView?.setRowVisibility(4, newState: self.combinedModulesState)
         
-        self.remoteView = PreferencesSection(label: localizedString("Stats Remote (beta)"), [
+        self.remoteControlBtn = switchView(
+            action: #selector(self.toggleRemoteControlState),
+            state: Remote.shared.control
+        )
+        self.remoteView = PreferencesSection(label: localizedString("Remote (beta)"), [
             PreferencesRow(localizedString("Authorization"), component: buttonView(#selector(self.loginToRemote), text: localizedString("Login"))),
             PreferencesRow(localizedString("Identificator"), component: textView(Remote.shared.id.uuidString)),
             PreferencesRow(localizedString("Monitoring"), component: switchView(
                 action: #selector(self.toggleRemoteMonitoringState),
                 state: Remote.shared.monitoring
             )),
+            PreferencesRow(localizedString("Control"), component: self.remoteControlBtn!),
             PreferencesRow(component: buttonView(#selector(self.logoutFromRemote), text: localizedString("Logout")))
         ])
         scrollView.stackView.addArrangedSubview(self.remoteView!)
         self.remoteView?.setRowVisibility(1, newState: false)
         self.remoteView?.setRowVisibility(2, newState: false)
         self.remoteView?.setRowVisibility(3, newState: false)
+        self.remoteView?.setRowVisibility(4, newState: false)
         
         scrollView.stackView.addArrangedSubview(PreferencesSection(label: localizedString("Settings"), [
             PreferencesRow(
@@ -198,7 +211,7 @@ class ApplicationSettings: NSStackView {
     
     internal func viewWillAppear() {
         self.startAtLoginBtn?.state = LaunchAtLogin.isEnabled ? .on : .off
-        self.telemetryBtn?.state = Telemetry.shared.isEnabled ? .on : .off
+        self.remoteControlBtn?.state = Remote.shared.control ? .on : .off
         
         var idx = self.updateSelector?.indexOfSelectedItem ?? 0
         if let items = self.updateSelector?.menu?.items {
@@ -311,10 +324,6 @@ class ApplicationSettings: NSStackView {
         }
     }
     
-    @objc private func toggleTelemetry(_ sender: NSButton) {
-        Telemetry.shared.isEnabled = sender.state == NSControl.StateValue.on
-    }
-    
     @objc private func toggleCombinedModules(_ sender: NSButton) {
         self.combinedModulesState = sender.state == NSControl.StateValue.on
         self.combinedModulesView?.setRowVisibility(1, newState: self.combinedModulesState)
@@ -424,6 +433,24 @@ class ApplicationSettings: NSStackView {
     @objc private func toggleRemoteMonitoringState(_ sender: NSButton) {
         Remote.shared.monitoring = sender.state == NSControl.StateValue.on
     }
+    @objc private func toggleRemoteControlState(_ sender: NSButton) {
+        if sender.state == .on {
+            let alert = NSAlert()
+            alert.messageText = localizedString("Warning")
+            alert.informativeText = localizedString("It is not recommended to enable remote control unless you know what you are doing.")
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: localizedString("Enable"))
+            alert.addButton(withTitle: localizedString("Cancel"))
+            let response = alert.runModal()
+            if response == .alertFirstButtonReturn {
+                Remote.shared.control = true
+            } else {
+                sender.state = .off
+            }
+        } else {
+            Remote.shared.control = false
+        }
+    }
     
     @objc private func handleRemoteState(_ notification: Notification) {
         guard let auth = notification.userInfo?["auth"] as? Bool else { return }
@@ -444,14 +471,20 @@ class ApplicationSettings: NSStackView {
                 self.remoteView?.setRowVisibility(1, newState: true)
                 self.remoteView?.setRowVisibility(2, newState: true)
                 self.remoteView?.setRowVisibility(3, newState: true)
+                self.remoteView?.setRowVisibility(4, newState: true)
                 self.remoteView?.setRowVisibility(0, newState: false)
             } else {
                 self.remoteView?.setRowVisibility(0, newState: true)
                 self.remoteView?.setRowVisibility(1, newState: false)
                 self.remoteView?.setRowVisibility(2, newState: false)
                 self.remoteView?.setRowVisibility(3, newState: false)
+                self.remoteView?.setRowVisibility(4, newState: false)
             }
         }
+    }
+    
+    @objc private func toggleSystemWidgetsUpdatesState(_ sender: NSButton) {
+        self.systemWidgetsUpdatesState = sender.state == NSControl.StateValue.on
     }
 }
 
