@@ -50,6 +50,7 @@ internal class Settings: NSStackView, Settings_v, NSTextFieldDelegate {
     
     private var selectedDisk: String
     private var button: NSPopUpButton?
+    private var widgets: [widget_t] = []
     
     private var list: [String] = []
     
@@ -78,6 +79,7 @@ internal class Settings: NSStackView, Settings_v, NSTextFieldDelegate {
     }
     
     public func load(widgets: [widget_t]) {
+        self.widgets = widgets
         self.subviews.forEach{ $0.removeFromSuperview() }
         
         self.addArrangedSubview(PreferencesSection([
@@ -109,19 +111,6 @@ internal class Settings: NSStackView, Settings_v, NSTextFieldDelegate {
             ))
         ]))
 
-        if widgets.contains(where: { $0 == .mini }) {
-            self.addArrangedSubview(PreferencesSection([
-                PreferencesRow(localizedString("Mini widget value"), component: selectView(
-                    action: #selector(self.changeMiniWidgetValue),
-                    items: [
-                        KeyValue_t(key: "usage", value: localizedString("Usage")),
-                        KeyValue_t(key: "temperature", value: localizedString("Temperature"))
-                    ],
-                selected: self.miniWidgetValue
-                ))
-            ]))
-        }
-
         if widgets.contains(where: { $0 == .speed }) {
             self.addArrangedSubview(PreferencesSection([
                 PreferencesRow(localizedString("Base"), component: selectView(
@@ -131,13 +120,24 @@ internal class Settings: NSStackView, Settings_v, NSTextFieldDelegate {
                 ))
             ]))
         }
-
-        self.addArrangedSubview(PreferencesSection([
+        
+        var smartRows: [PreferencesRow] = [
             PreferencesRow(localizedString("SMART data"), component: switchView(
                 action: #selector(self.toggleSMART),
                 state: self.SMARTState
             ))
-        ]))
+        ]
+        if self.SMARTState && widgets.contains(where: { $0 == .mini }) {
+            smartRows.append(PreferencesRow(localizedString("Mini widget value"), component: selectView(
+                action: #selector(self.changeMiniWidgetValue),
+                items: [
+                    KeyValue_t(key: "usage", value: localizedString("Usage")),
+                    KeyValue_t(key: "temperature", value: localizedString("Temperature"))
+                ],
+                selected: self.miniWidgetValue
+            )))
+        }
+        self.addArrangedSubview(PreferencesSection(smartRows))
         
         if widgets.contains(where: { $0 == .text }) {
             let textField = self.inputField(id: "text", value: self.textValue, placeholder: localizedString("This will be visible in the text widget"))
@@ -218,6 +218,14 @@ internal class Settings: NSStackView, Settings_v, NSTextFieldDelegate {
     @objc private func toggleSMART(_ sender: NSControl) {
         self.SMARTState = controlState(sender)
         Store.shared.set(key: "\(self.title)_SMART", value: self.SMARTState)
+        
+        if !self.SMARTState {
+            self.miniWidgetValue = "usage"
+            Store.shared.set(key: "\(self.title)_miniWidgetValue", value: self.miniWidgetValue)
+            self.miniWidgetValueHandler(self.miniWidgetValue)
+        }
+        
+        self.load(widgets: self.widgets)
         self.callback()
     }
     @objc private func changeMiniWidgetValue(_ sender: NSMenuItem) {
